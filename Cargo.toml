@@ -2,6 +2,8 @@
 name = "ferrumec-main"
 version = "0.1.0"
 edition = "2024"
+description = "Rust library for bootstrapping an Actix Web server around Ferrumec⁠� modules. "
+license = "MIT"
 
 [dependencies]
 actix-files = "0.6.10"
