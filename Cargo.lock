@@ -765,26 +765,21 @@ dependencies = [
 
 [[package]]
 name = "ferrumec"
-version = "0.4.7"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3ec0a595b83b267313eef2ff79a941e9e01ecd675345fe6aacf4ead05655c4e"
+checksum = "a9ab4102bf211a665d988e00f1bfe0b32af756b3318fdc46aa238f00cb091d28"
 dependencies = [
- "actix-files",
  "actix-web",
  "async-trait",
  "bytes",
  "dashmap",
  "futures",
- "futures-util",
  "moka",
  "serde",
  "serde_json",
  "sqlx",
- "thiserror",
  "tokio",
  "tracing",
- "tracing-actix-web",
- "tracing-subscriber",
  "uuid",
 ]
 
@@ -795,15 +790,33 @@ dependencies = [
  "actix-files",
  "actix-web",
  "ferrumec",
+ "ferrumec-perms",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "permissions",
  "tracing",
  "tracing-actix-web",
  "tracing-opentelemetry",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "ferrumec-perms"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14e548d0b4fdd43ee31603541fe46ede4205b583e52c49a4555eaa18ef2706c8"
+dependencies = [
+ "actix-web",
+ "ferrumec",
+ "futures-util",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tracing",
+ "uuid",
+ "viewset",
 ]
 
 [[package]]
@@ -1697,22 +1710,6 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
-
-[[package]]
-name = "permissions"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "ferrumec",
- "futures-util",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror",
- "tracing",
- "uuid",
- "viewset",
-]
 
 [[package]]
 name = "pin-project-lite"
@@ -2820,9 +2817,9 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "viewset"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "596f0b33fcef2599b59eac965932c859a13fdeadf1fce4849cd066e6cee8c149"
+checksum = "bf05b25265fdab7b38bb5c9feb127f54b0fd2c3c41d7ea1f2377bded50d3ad0d"
 dependencies = [
  "async-trait",
  "ferrumec",

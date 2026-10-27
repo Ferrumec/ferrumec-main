@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 actix-files = "0.6.10"
 actix-web = "4.18.1"
-ferrumec = { version = "0.4.7", features = ["web"] }
+ferrumec = { version = "0.5", features = ["web"] }
 opentelemetry = "0.33.1"
 opentelemetry-appender-tracing = "0.33.1"
 opentelemetry-otlp = "0.33.1"
@@ -14,5 +14,5 @@ opentelemetry_sdk = "0.33.1"
 tracing = "0.1.44"
 tracing-actix-web = "0.7.25"
 tracing-opentelemetry = "0.34.0"
-tracing-subscriber = "0.3.23"
-permissions = { path = "../permissions" }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+ferrumec-perms = { version = "0.1.0" }
