@@ -1,8 +1,6 @@
-use actix_web::dev::Service;
 use actix_web::{App, HttpServer};
 use ferrumec_perms::{PermissionSet, Permissions};
 use std::sync::Arc;
-use std::time::Instant;
 
 use tracing_actix_web::{DefaultRootSpanBuilder, TracingLogger};
 
