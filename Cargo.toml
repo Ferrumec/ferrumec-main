@@ -17,4 +17,4 @@ tracing = "0.1.44"
 tracing-actix-web = "0.7.25"
 tracing-opentelemetry = "0.34.0"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-ferrumec-perms = { version = "0.1.0" }
+ferrumec-perms = "0.1.1"

@@ -64,27 +64,7 @@ pub async fn launch(
         move || {
             let app = App::new()
                 .wrap(permission_middleware.clone())
-                .wrap(TracingLogger::<DefaultRootSpanBuilder>::new())
-                .wrap_fn(|req, srv| {
-                    let start = Instant::now();
-                    let method = req.method().to_string();
-
-                    let future = srv.call(req);
-
-                    async move {
-                        let response = future.await?;
-                        let duration = start.elapsed();
-
-                        let route = response
-                            .request()
-                            .match_pattern()
-                            .unwrap_or_else(|| "<unmatched>".to_owned());
-
-                        record_request(&method, &route, response.status().as_u16(), duration);
-
-                        Ok(response)
-                    }
-                });
+                .wrap(TracingLogger::<DefaultRootSpanBuilder>::new());
 
             // API routes first, so they take priority over the static catch-all.
             let mut api = actix_web::web::scope("/api");
