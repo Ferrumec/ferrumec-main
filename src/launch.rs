@@ -1,8 +1,13 @@
+use actix_web::{
+    dev::{Service, ServiceRequest, ServiceResponse, Transform},
+    Error,
+};
 use actix_web::{App, HttpServer};
 use ferrumec_perms::{PermissionSet, Permissions};
+use futures_util::future::{ok, LocalBoxFuture, Ready};
 use std::sync::Arc;
-
-use tracing_actix_web::{DefaultRootSpanBuilder, TracingLogger};
+use std::task::{Context, Poll};
+use std::time::Instant;
 
 use crate::observability::{Observability, record_request};
 use ferrumec::{Infra, Module};
@@ -10,17 +15,14 @@ use ferrumec::{Infra, Module};
 /// Initializes observability and runs an Actix Web server hosting `modules`.
 ///
 /// Each `(namespace, module)` pair is registered with [`Module::configure`]
-/// on every worker. Requests are traced with `tracing-actix-web` and recorded
-/// through [`record_request`] (count and duration by method, route and
-/// status).
+/// on every worker. Requests are recorded through [`record_request`] (count
+/// and duration by method, route and status).
 ///
 /// This is an opinionated bootstrap: it reports telemetry under the service
-/// name `"mains"`, binds to `127.0.0.1:8080`, and panics if observability
-/// cannot be initialized. Telemetry is flushed after the server stops. For
-/// other settings, build your own `HttpServer` and use [`Observability`] and
-/// [`record_request`] directly.
-///
-/// Requires the `launch` feature (which enables `web`).
+/// name `"mains"`, binds to `HOST:PORT` (defaults `0.0.0.0:8080`), and panics
+/// if observability cannot be initialized. Telemetry is flushed after the
+/// server stops. For other settings, build your own `HttpServer` and use
+/// [`Observability`] and [`record_request`] directly.
 pub async fn launch(
     modules: Vec<(&'static str, Arc<dyn Module>)>,
     infra: impl Infra,
@@ -33,8 +35,7 @@ pub async fn launch(
         .expect("failed to initialize observability");
 
     tracing::info!(
-        "Observability initialized: logs=VictoriaLogs, \
-         metrics=VictoriaMetrics, traces=OTLP"
+        "Observability initialized: logs=VictoriaLogs, metrics=VictoriaMetrics"
     );
 
     // ---------------------------------------------------------
@@ -62,7 +63,7 @@ pub async fn launch(
         move || {
             let app = App::new()
                 .wrap(permission_middleware.clone())
-                .wrap(TracingLogger::<DefaultRootSpanBuilder>::new());
+                .wrap(MetricsMiddleware);
 
             // API routes first, so they take priority over the static catch-all.
             let mut api = actix_web::web::scope("/api");
@@ -99,3 +100,65 @@ pub async fn launch(
     telemetry.shutdown();
     result
 }
+
+/// Actix middleware that records request count and duration metrics.
+pub struct MetricsMiddleware;
+
+impl<S, B> Transform<S, ServiceRequest> for MetricsMiddleware
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Transform = MetricsMiddlewareService<S>;
+    type InitError = ();
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ok(MetricsMiddlewareService { service })
+    }
+}
+
+pub struct MetricsMiddlewareService<S> {
+    service: S,
+}
+
+impl<S, B> Service<ServiceRequest> for MetricsMiddlewareService<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(cx)
+    }
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let start = Instant::now();
+        let method = req.method().to_string();
+        // Fall back path for when matching has not run yet (outer middleware).
+        let path = req.path().to_string();
+
+        let fut = self.service.call(req);
+
+        Box::pin(async move {
+            let res = fut.await?;
+            // Prefer the matched route pattern (available after routing); fall back to path.
+            let route = res
+                .request()
+                .match_pattern()
+                .unwrap_or(path);
+            let status = res.status().as_u16();
+            let duration = start.elapsed();
+            record_request(&method, &route, status, duration);
+            Ok(res)
+        })
+    }
+}
+
