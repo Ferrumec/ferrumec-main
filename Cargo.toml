@@ -1,6 +1,6 @@
 [package]
 name = "ferrumec-main"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Rust library for bootstrapping an Actix Web server around Ferrumec modules."
 license = "MIT"
