@@ -1,10 +1,11 @@
-use actix_web::{
-    dev::{Service, ServiceRequest, ServiceResponse, Transform},
-    Error,
-};
+use actix_files::{Files, NamedFile};
 use actix_web::{App, HttpServer};
+use actix_web::{
+    Error, HttpResponse,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, fn_service},
+};
 use ferrumec_perms::{PermissionSet, Permissions};
-use futures_util::future::{ok, LocalBoxFuture, Ready};
+use futures_util::future::{LocalBoxFuture, Ready, ok};
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
@@ -34,9 +35,7 @@ pub async fn launch(
     let telemetry = Observability::init("mains", env!("CARGO_PKG_VERSION"))
         .expect("failed to initialize observability");
 
-    tracing::info!(
-        "Observability initialized: logs=VictoriaLogs, metrics=VictoriaMetrics"
-    );
+    tracing::info!("Observability initialized: logs=VictoriaLogs, metrics=VictoriaMetrics");
 
     // ---------------------------------------------------------
     // HTTP server
@@ -78,8 +77,29 @@ pub async fn launch(
 
             // Static frontend last: it matches everything under "/".
             if let Ok(frontend) = std::env::var("FRONTEND") {
+                let index = format!("{}/index.html", frontend.trim_end_matches('/'));
+
                 app = app.default_service(
-                    actix_files::Files::new("/", frontend).index_file("index.html"),
+                    Files::new("/", frontend)
+                        .index_file("index.html")
+                        .default_handler(fn_service(move |req: ServiceRequest| {
+                            let index = index.clone();
+                            async move {
+                                let (req, _) = req.into_parts();
+                                let path = req.path();
+
+                                // Don't answer API typos or missing assets with HTML.
+                                let last = path.rsplit('/').next().unwrap_or("");
+                                if path.starts_with("/api/") || last.contains('.') {
+                                    let res = HttpResponse::NotFound().finish();
+                                    return Ok(ServiceResponse::new(req, res));
+                                }
+
+                                let file = NamedFile::open_async(index).await?;
+                                let res = file.into_response(&req);
+                                Ok(ServiceResponse::new(req, res))
+                            }
+                        })),
                 );
             }
 
@@ -150,10 +170,7 @@ where
         Box::pin(async move {
             let res = fut.await?;
             // Prefer the matched route pattern (available after routing); fall back to path.
-            let route = res
-                .request()
-                .match_pattern()
-                .unwrap_or(path);
+            let route = res.request().match_pattern().unwrap_or(path);
             let status = res.status().as_u16();
             let duration = start.elapsed();
             record_request(&method, &route, status, duration);
@@ -161,4 +178,3 @@ where
         })
     }
 }
-
